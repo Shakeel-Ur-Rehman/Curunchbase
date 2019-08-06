@@ -5,28 +5,23 @@ namespace :curunchbase do
     path=Rails.public_path  
     @org=Investor.find_by(organization_url:"https://www.crunchbase.com/organization/vivo-capital") 
     CSV.open("#{path}/investorslist/investorslist2.csv","wb") do |csv|
-          csv<<["Investor","Organization Name","Permalink","Categories","Headequarters Location","Description","CB Rank","Website"]
-          url="https://api.crunchbase.com/v3.1/organizations/vivo-capital/investments?user_key=410bdb586887ca56ea64d429af28b17d"
+          csv<<["Investor","Organization Name","Permalink","Headequarters Location","Description","CB Rank","Website"]
+          url="https://api.crunchbase.com/v3.1/organizations/#{Organization.permalink(@org.organization_url)}/investments?user_key=410bdb586887ca56ea64d429af28b17d"
           response = HTTParty.get(url)
           @count=Array.new
           @investments = response.parsed_response
           @pages=@investments["data"]["paging"]["number_of_pages"]
           @nextpageurl=@investments["data"]["paging"]["next_page_url"]
           @investments["data"]["items"].each_with_index do |investment,index|
-            if investment["relationships"]["invested_in"]["properties"]["total_funding_usd"]>1000000
+            @counter=0;
+            if investment["relationships"]["invested_in"]["properties"]["total_funding_usd"]>1000000&&investment["relationships"]["invested_in"]["properties"]["is_closed"]=false
+              @counter+=1
               unless @count.include?(investment["relationships"]["invested_in"]["properties"]["permalink"])
                 url="https://api.crunchbase.com/v3.1/organizations/#{investment["relationships"]["invested_in"]["properties"]["permalink"]}/headquarters?user_key=410bdb586887ca56ea64d429af28b17d"
                 response = HTTParty.get(url)
                 @organization = response.parsed_response
-                url="https://api.crunchbase.com/v3.1/organizations/#{investment["relationships"]["invested_in"]["properties"]["permalink"]}/categories?user_key=410bdb586887ca56ea64d429af28b17d"
-                catresponse = HTTParty.get(url)
-                @categories = catresponse.parsed_response
                 if countries.include?(@organization["data"]["items"][0]["properties"]["country"])
-                  @Categories=Array.new
-                    @categories["data"]["items"].each do |item|
-                      @categories<<item["properties"]["name"]
-                    end
-                  csv<<[@org.name,investment["relationships"]["invested_in"]["properties"]["name"],investment["relationships"]["invested_in"]["properties"]["permalink"],@categories,@organization["data"]["items"][0]["properties"]["country"],investment["relationships"]["invested_in"]["properties"]["description"],"#{investment["relationships"]["invested_in"]["properties"]["descritption"]}",investment["relationships"]["invested_in"]["properties"]["rank"],investment["relationships"]["invested_in"]["properties"]["api_url"]]
+                  csv<<[@org.name,investment["relationships"]["invested_in"]["properties"]["name"],investment["relationships"]["invested_in"]["properties"]["permalink"],@organization["data"]["items"][0]["properties"]["country"],investment["relationships"]["invested_in"]["properties"]["description"],investment["relationships"]["invested_in"]["properties"]["rank"],investment["relationships"]["invested_in"]["properties"]["api_url"]]
                 end
             end
           end
@@ -38,20 +33,13 @@ namespace :curunchbase do
           @investmentsnext = response.parsed_response
           @nextpageurl=@investmentsnext["data"]["paging"]["next_page_url"]
           @investmentsnext["data"]["items"].each_with_index do |investment,index|
-            if investment["relationships"]["invested_in"]["properties"]["total_funding_usd"]>1000000
+            if investment["relationships"]["invested_in"]["properties"]["total_funding_usd"]>1000000 &&investment["relationships"]["invested_in"]["properties"]["is_closed"]=false
               unless @count.include?(investment["relationships"]["invested_in"]["properties"]["permalink"])
                 url="https://api.crunchbase.com/v3.1/organizations/#{investment["relationships"]["invested_in"]["properties"]["permalink"]}/headquarters?user_key=410bdb586887ca56ea64d429af28b17d"
                 response = HTTParty.get(url)
                 @organization = response.parsed_response
-                url="https://api.crunchbase.com/v3.1/organizations/#{investment["relationships"]["invested_in"]["properties"]["permalink"]}/categories?user_key=410bdb586887ca56ea64d429af28b17d"
-                catresponse = HTTParty.get(url)
-                @categories = catresponse.parsed_response
                 if countries.include?(@organization["data"]["items"][0]["properties"]["country"])
-                  @Categories=Array.new
-                    @categories["data"]["items"].each do |item|
-                      @categories<<item["properties"]["name"]
-                    end
-                  csv<<[@org.name,investment["relationships"]["invested_in"]["properties"]["name"],investment["relationships"]["invested_in"]["properties"]["permalink"],@categories,@organization["data"]["items"][0]["properties"]["country"],investment["relationships"]["invested_in"]["properties"]["description"],"#{investment["relationships"]["invested_in"]["properties"]["descritption"]}",investment["relationships"]["invested_in"]["properties"]["rank"],investment["relationships"]["invested_in"]["properties"]["api_url"]]
+                  csv<<[@org.name,investment["relationships"]["invested_in"]["properties"]["name"],investment["relationships"]["invested_in"]["properties"]["permalink"],@organization["data"]["items"][0]["properties"]["country"],investment["relationships"]["invested_in"]["properties"]["description"],investment["relationships"]["invested_in"]["properties"]["rank"],investment["relationships"]["invested_in"]["properties"]["api_url"]]
                 end
             end
           end
