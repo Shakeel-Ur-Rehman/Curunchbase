@@ -1,31 +1,37 @@
 namespace :curunchbase do
   desc "Generate CSV"
   task generatecsv: :environment do
-    countries=["United Stats","Canada"]
+    countries=["united states","canada"]
+    api_key = "410bdb586887ca56ea64d429af28b17d"
     path=Rails.public_path  
     @org=Investor.find_by(organization_url:"https://www.crunchbase.com/organization/vivo-capital") 
     CSV.open("#{path}/investorslist/investorslist2.csv","wb") do |csv|
           csv<<["Investor","Organization Name","Permalink","Headequarters Location","Description","CB Rank","Website"]
-          url="https://api.crunchbase.com/v3.1/organizations/#{Organization.permalink(@org.organization_url)}/investments?user_key=410bdb586887ca56ea64d429af28b17d"
+          url="https://api.crunchbase.com/v3.1/organizations/#{Organization.permalink(@org.organization_url)}/investments?user_key=#{api_key}"
           response = HTTParty.get(url)
           @count=Array.new
           @investments = response.parsed_response
           @pages=@investments["data"]["paging"]["number_of_pages"]
           @nextpageurl=@investments["data"]["paging"]["next_page_url"]
           @investments["data"]["items"].each_with_index do |investment,index|
-            @counter=0;
-            if investment["relationships"]["invested_in"]["properties"]["total_funding_usd"]>1000000&&investment["relationships"]["invested_in"]["properties"]["is_closed"]=false
-              @counter+=1
-              unless @count.include?(investment["relationships"]["invested_in"]["properties"]["permalink"])
-                url="https://api.crunchbase.com/v3.1/organizations/#{investment["relationships"]["invested_in"]["properties"]["permalink"]}/headquarters?user_key=410bdb586887ca56ea64d429af28b17d"
+
+            @investment_details = investment["relationships"]["invested_in"]["properties"]
+            if @investment_details["total_funding_usd"]>1000000 && !@investment_details["is_closed"]
+              
+              unless @count.include?(@investment_details["permalink"])
+                url="https://api.crunchbase.com/v3.1/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}"
                 response = HTTParty.get(url)
                 @organization = response.parsed_response
-                if countries.include?(@organization["data"]["items"][0]["properties"]["country"])
-                  csv<<[@org.name,investment["relationships"]["invested_in"]["properties"]["name"],investment["relationships"]["invested_in"]["properties"]["permalink"],@organization["data"]["items"][0]["properties"]["country"],investment["relationships"]["invested_in"]["properties"]["description"],investment["relationships"]["invested_in"]["properties"]["rank"],investment["relationships"]["invested_in"]["properties"]["api_url"]]
+                if countries.include?(@organization["data"]["items"][0]["properties"]["country"].downcase)
+                  csv<<[@org.name,@investment_details["name"],@investment_details["permalink"],@organization["data"]["items"][0]["properties"]["country"],@investment_details["description"],@investment_details["rank"],@investment_details["api_url"]]
                 end
-            end
-          end
-        end
+              end
+            end            
+          end  # End of loop.
+     
+
+
+
         #while here
         while @pages>1
           url=@nextpageurl+"&user_key=410bdb586887ca56ea64d429af28b17d"
