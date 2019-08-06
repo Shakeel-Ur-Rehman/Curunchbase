@@ -6,10 +6,18 @@ namespace :curunchbase do
     api_base_url = "https://api.crunchbase.com/v3.1"
 
     path=Rails.public_path  
-    @org=Investor.find_by(organization_url:"https://www.crunchbase.com/organization/vivo-capital") 
-    CSV.open("#{path}/investorslist/investorslist2.csv","wb") do |csv|
+    @investors = Investor.all 
+
+    @investors.each do |investor|
+
+      investor_permalink = Organization.permalink(investor.organization_url)
+
+    
+
+
+    CSV.open("#{path}/investorslist/#{investor_permalink}.csv","wb") do |csv|
           csv<<["Investor","Organization Name","Permalink","Headequarters Location","Description","CB Rank","Website"]
-          url="#{api_base_url}/organizations/#{Organization.permalink(@org.organization_url)}/investments?user_key=#{api_key}"
+          url="#{api_base_url}/organizations/#{investor_permalink}/investments?user_key=#{api_key}"
           response = HTTParty.get(url)
           @unique_organizations = Array.new
           @investments = response.parsed_response
@@ -18,8 +26,7 @@ namespace :curunchbase do
 
           @investments["data"]["items"].each_with_index do |investment,index|
             @investment_details = investment["relationships"]["invested_in"]["properties"]
-            next if @unique_organizations.include?(@investment_details["permalink"])?            
-            @unique_organizations<<@investment_details["permalink"]
+            @unique_organizations.include?(@investment_details["permalink"]) ? next : @unique_organizations<<@investment_details["permalink"]
 
             if @investment_details["total_funding_usd"]>1000000 && !@investment_details["is_closed"]
                 url="#{api_base_url}/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}"
@@ -51,10 +58,13 @@ namespace :curunchbase do
           end
           end
               @pages-=1
-        end
-        #end while
-      end  
+        end   
+      end  #end while
+    end  # end for main investors loop.
+
     end
+
+
   desc "Get Investors List"
   task getinvestorslist: :environment do
     path=Rails.public_path
