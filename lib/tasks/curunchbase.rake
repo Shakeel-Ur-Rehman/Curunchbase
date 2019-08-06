@@ -3,34 +3,34 @@ namespace :curunchbase do
   task generatecsv: :environment do
     countries=["united states","canada"]
     api_key = "410bdb586887ca56ea64d429af28b17d"
+    api_base_url = "https://api.crunchbase.com/v3.1"
+
     path=Rails.public_path  
     @org=Investor.find_by(organization_url:"https://www.crunchbase.com/organization/vivo-capital") 
     CSV.open("#{path}/investorslist/investorslist2.csv","wb") do |csv|
           csv<<["Investor","Organization Name","Permalink","Headequarters Location","Description","CB Rank","Website"]
-          url="https://api.crunchbase.com/v3.1/organizations/#{Organization.permalink(@org.organization_url)}/investments?user_key=#{api_key}"
+          url="#{api_base_url}/organizations/#{Organization.permalink(@org.organization_url)}/investments?user_key=#{api_key}"
           response = HTTParty.get(url)
-          @count=Array.new
+          @unique_organizations = Array.new
           @investments = response.parsed_response
           @pages=@investments["data"]["paging"]["number_of_pages"]
-          @nextpageurl=@investments["data"]["paging"]["next_page_url"]
-          @investments["data"]["items"].each_with_index do |investment,index|
+          @nextpageurl=@investments["data"]["paging"]["next_page_url"]          
 
+          @investments["data"]["items"].each_with_index do |investment,index|
             @investment_details = investment["relationships"]["invested_in"]["properties"]
+            next if @unique_organizations.include?(@investment_details["permalink"])?            
+            @unique_organizations<<@investment_details["permalink"]
+
             if @investment_details["total_funding_usd"]>1000000 && !@investment_details["is_closed"]
-              
-              unless @count.include?(@investment_details["permalink"])
-                url="https://api.crunchbase.com/v3.1/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}"
+                url="#{api_base_url}/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}"
                 response = HTTParty.get(url)
                 @organization = response.parsed_response
                 if countries.include?(@organization["data"]["items"][0]["properties"]["country"].downcase)
                   csv<<[@org.name,@investment_details["name"],@investment_details["permalink"],@organization["data"]["items"][0]["properties"]["country"],@investment_details["description"],@investment_details["rank"],@investment_details["api_url"]]
-                end
-              end
+                end              
             end            
           end  # End of loop.
      
-
-
 
         #while here
         while @pages>1
