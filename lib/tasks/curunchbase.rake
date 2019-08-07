@@ -6,56 +6,56 @@ namespace :curunchbase do
     api_base_url = "https://api.crunchbase.com/v3.1"
 
     path=Rails.public_path  
-    @investors = Investor.all 
-
+    @investors=Investor.limit(100)
     @investors.each do |investor|
-
-      investor_permalink = Organization.permalink(investor.organization_url)
-
-    
-
-
-    CSV.open("#{path}/investorslist/#{investor_permalink}.csv","wb") do |csv|
+    CSV.open("#{path}/investorslist/Batch/#{Organization.permalink(investor.organization_url)}.csv","wb") do |csv|
           csv<<["Investor","Organization Name","Permalink","Headequarters Location","Description","CB Rank","Website"]
-          url="#{api_base_url}/organizations/#{investor_permalink}/investments?user_key=#{api_key}"
-          response = HTTParty.get(url)
+            if investor.organization_url.include?("/person")
+            url=Organization.EscapeURL("#{api_base_url}/people/#{Organization.permalink(investor.organization_url)}/investments?user_key=#{api_key}")
+            else
+              url=Organization.EscapeURL("#{api_base_url}/organizations/#{Organization.permalink(investor.organization_url)}/investments?user_key=#{api_key}")
+            end
+            response = HTTParty.get(url)
           @unique_organizations = Array.new
           @investments = response.parsed_response
           @pages=@investments["data"]["paging"]["number_of_pages"]
           @nextpageurl=@investments["data"]["paging"]["next_page_url"]          
-
           @investments["data"]["items"].each_with_index do |investment,index|
             @investment_details = investment["relationships"]["invested_in"]["properties"]
-            @unique_organizations.include?(@investment_details["permalink"]) ? next : @unique_organizations<<@investment_details["permalink"]
 
-            if @investment_details["total_funding_usd"]>1000000 && !@investment_details["is_closed"]
-                url="#{api_base_url}/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}"
+            @unique_organizations.include?(@investment_details["permalink"])? next :        
+            @unique_organizations<<@investment_details["permalink"]
+            if @investment_details["total_funding_usd"]>=1000000 && !@investment_details["is_closed"]
+                url=Organization.EscapeURL("#{api_base_url}/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}")
                 response = HTTParty.get(url)
                 @organization = response.parsed_response
-                if countries.include?(@organization["data"]["items"][0]["properties"]["country"].downcase)
-                  csv<<[@org.name,@investment_details["name"],@investment_details["permalink"],@organization["data"]["items"][0]["properties"]["country"],@investment_details["description"],@investment_details["rank"],@investment_details["api_url"]]
-                end              
+                if @organization.class==Hash && @organization["data"]["paging"]["total_items"].to_i>0
+                  if countries.include?(@organization["data"]["items"][0]["properties"]["country"].downcase)
+                  csv<<[investor.name,@investment_details["name"],@investment_details["permalink"],@organization["data"]["items"][0]["properties"]["country"],@investment_details["description"],@investment_details["rank"],@investment_details["api_url"]]
+                  end  
+                end                   
             end            
           end  # End of loop.
-     
-
         #while here
         while @pages>1
-          url=@nextpageurl+"&user_key=410bdb586887ca56ea64d429af28b17d"
+          url=@nextpageurl+"&user_key=#{api_key}"
           response = HTTParty.get(url)
           @investmentsnext = response.parsed_response
           @nextpageurl=@investmentsnext["data"]["paging"]["next_page_url"]
           @investmentsnext["data"]["items"].each_with_index do |investment,index|
-            if investment["relationships"]["invested_in"]["properties"]["total_funding_usd"]>1000000 &&investment["relationships"]["invested_in"]["properties"]["is_closed"]=false
-              unless @count.include?(investment["relationships"]["invested_in"]["properties"]["permalink"])
-                url="https://api.crunchbase.com/v3.1/organizations/#{investment["relationships"]["invested_in"]["properties"]["permalink"]}/headquarters?user_key=410bdb586887ca56ea64d429af28b17d"
+            @investment_details = investment["relationships"]["invested_in"]["properties"]
+            @unique_organizations.include?(@investment_details["permalink"])? next :        
+            @unique_organizations<<@investment_details["permalink"]
+            if @investment_details["total_funding_usd"]>=1000000 && !@investment_details["is_closed"]
+                url=Organization.EscapeURL("#{api_base_url}/organizations/#{@investment_details["permalink"]}/headquarters?user_key=#{api_key}")
                 response = HTTParty.get(url)
                 @organization = response.parsed_response
-                if countries.include?(@organization["data"]["items"][0]["properties"]["country"])
-                  csv<<[@org.name,investment["relationships"]["invested_in"]["properties"]["name"],investment["relationships"]["invested_in"]["properties"]["permalink"],@organization["data"]["items"][0]["properties"]["country"],investment["relationships"]["invested_in"]["properties"]["description"],investment["relationships"]["invested_in"]["properties"]["rank"],investment["relationships"]["invested_in"]["properties"]["api_url"]]
-                end
-            end
-          end
+                if @organization.class==Hash && @organization["data"]["paging"]["total_items"].to_i>0
+                    if countries.include?(@organization["data"]["items"][0]["properties"]["country"].downcase)
+                    csv<<[investor.name,@investment_details["name"],@investment_details["permalink"],@organization["data"]["items"][0]["properties"]["country"],@investment_details["description"],@investment_details["rank"],@investment_details["api_url"]]
+                    end  
+                  end           
+            end            
           end
               @pages-=1
         end   
@@ -63,6 +63,15 @@ namespace :curunchbase do
     end  # end for main investors loop.
 
     end
+
+    end
+
+
+
+
+
+
+
 
 
   desc "Get Investors List"

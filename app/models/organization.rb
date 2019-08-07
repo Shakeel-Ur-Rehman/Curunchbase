@@ -41,4 +41,7 @@ field :updated_at ,type: String
 def self.permalink(url)
   url.split('/').last
  end
+ def self.EscapeURL(url)
+  URI.parse(URI.escape(url))
+ end
 end
